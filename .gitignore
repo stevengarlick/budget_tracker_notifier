@@ -8,7 +8,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -16,7 +16,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-include/
-ssl/
+/include/
+/ssl/
 # Serverless directories
 .serverless
