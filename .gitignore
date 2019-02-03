@@ -1,6 +1,8 @@
 # Distribution / packaging
 .Python
 *.pyc
+/bin/
+/share/
 env/
 build/
 develop-eggs/
@@ -18,5 +20,6 @@ var/
 *.egg
 /include/
 /ssl/
+/conda-meta/
 # Serverless directories
 .serverless
