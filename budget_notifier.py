@@ -33,7 +33,7 @@ def budget_notifier(event, context):
 
     def get_some_transactions(access_token: str, start_date: str, end_date: str) -> List[dict]:
         MAX_TRANSACTIONS_PER_PAGE = 500
-        OMIT_CATEGORIES = ["Credit", "Deposit", "Payment"]
+        OMIT_CATEGORIES = ["Credit", "Deposit", "Payment", "Healthcare", "Community", "Gyms and Fitness Centers", "Interest", "Cable", "Telecommunication Services", "Utilities"]
         OMIT_ACCOUNT_SUBTYPES = ['cd', 'savings', 'checking']
 
         account_ids = [account['account_id'] for account in plaid_client.Accounts.get(access_token)['accounts']
@@ -78,7 +78,7 @@ def budget_notifier(event, context):
         w_total_spent = round(sum(transaction['amount'] for transaction in w_trx),2)
         y_body = '${} spent yesterday.'.format(y_total_spent)
         w_body = '${} spent this week.'.format(w_total_spent)
-        r_body = '${} available for the next {} days.'.format(round(500-w_total_spent,2), (7-idx)
+        r_body = '${} available for the next {} days.'.format(round(500-w_total_spent,2), (7-idx))
         sns = session.client('sns')
         contact_list = [s_cell, m_cell]
         for num in contact_list:
