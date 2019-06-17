@@ -33,39 +33,67 @@ def budget_notifier(event, context):
 
     def get_some_transactions(access_token: str, start_date: str, end_date: str) -> List[dict]:
         MAX_TRANSACTIONS_PER_PAGE = 500
-        OMIT_CATEGORIES = ["Credit", "Deposit", "Payment", "Healthcare", "Community", "Gyms and Fitness Centers", "Interest", "Cable", "Telecommunication Services", "Utilities"]
-        OMIT_ACCOUNT_SUBTYPES = ['cd', 'savings', 'checking']
+        # Categories from the returned transaction JSON that we are not counting in the budget sum
+        OMIT_CATEGORIES = [
+            "Credit"
+            , "Deposit"
+            , "Payment"
+            , "Healthcare"
+            , "Community"
+            , "Gyms and Fitness Centers"
+            , "Interest"
+            , "Cable"
+            , "Telecommunication Services"
+            , "Utilities"
+        ]
+        # Subtypes from the returned transaction JSON that we are not counting in the budget sum
+        OMIT_ACCOUNT_SUBTYPES = [
+            'cd'
+            , 'savings'
+            , 'checking'
+        ]
 
-        account_ids = [account['account_id'] for account in plaid_client.Accounts.get(access_token)['accounts']
-            if account['subtype'] not in OMIT_ACCOUNT_SUBTYPES]
-        
+        # Adding all accounts that are not part of the "OMIT_ACCOUNT_SUBTYPES" variable above
+        account_ids = []
+        for account in plaid_client.Accounts.get(access_token)['accounts']:
+            if account['subtype'] not in OMIT_ACCOUNT_SUBTYPES:
+                account_ids.append(account['account_id'])
+
+#    account_ids = [account['account_id'] for account in plaid_client.Accounts.get(access_token)['accounts']
+#        if account['subtype'] not in OMIT_ACCOUNT_SUBTYPES]
+
+        # Fins number of transactions per page so we can iterate over them
         num_available_transactions = plaid_client.Transactions.get(access_token, start_date, end_date, account_ids=account_ids)['total_transactions']
         num_pages = math.ceil(num_available_transactions / MAX_TRANSACTIONS_PER_PAGE)
+
+        # Start with empty array named transactions, then add a transaction to it whenever the category is none OR when none of the categories are part of the blacklist 
         transactions = []
-        
         for page_num in range(num_pages):
-            transactions += [transaction for transaction in plaid_client.Transactions.get(access_token, start_date, end_date,
-                            account_ids=account_ids,offset=page_num * MAX_TRANSACTIONS_PER_PAGE, count=MAX_TRANSACTIONS_PER_PAGE)['transactions']
-                            if transaction['category'] is None
-                            or not any(category in OMIT_CATEGORIES
-                            for category in transaction['category'])
-                            ]
-        
+            for transaction in plaid_client.Transactions.get(access_token, start_date, end_date, account_ids=account_ids,offset=page_num * MAX_TRANSACTIONS_PER_PAGE, count=MAX_TRANSACTIONS_PER_PAGE)['transactions']:
+                if transaction['category'] is None:
+                    if 'kinder' in transaction['name']:
+                        None
+                elif (category in OMIT_CATEGORIES for category in transaction['category']):
+                    None
+                else:
+                    transactions += transaction
+
         return transactions
 
 
     def get_yesterdays_transactions() -> List[dict]:
         today = datetime.date.today()
+        # Finds the most recent Sunday and creates an interval between that Sunday and yesterday
         idx = (today.weekday() + 3) % 7
         yesterday = (today - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
         start = (today - datetime.timedelta(idx)).strftime('%Y-%m-%d')
-        
 
-
+        # Collect all of yesterdays transactions from each credit card
         y_trx = []
         for access_id in [c_tkn, d_tkn, a_tkn]:
             y_trx += get_some_transactions(access_id, yesterday, yesterday)
-        
+
+        # Collect all of this weeks transactions from each credit card
         w_trx = []
         for access_id in [c_tkn, d_tkn, a_tkn]:
             w_trx += get_some_transactions(access_id, start, yesterday)
@@ -76,11 +104,12 @@ def budget_notifier(event, context):
     def sms(session, y_trx, w_trx):
         y_total_spent = round(sum(transaction['amount'] for transaction in y_trx),2)
         w_total_spent = round(sum(transaction['amount'] for transaction in w_trx),2)
-        y_body = '${} spent yesterday.'.format(y_total_spent)
-        w_body = '${} spent this week.'.format(w_total_spent)
-        r_body = '${} available for the next {} days.'.format(round(500-w_total_spent,2), (7-idx))
+        y_body = '${0} spent yesterday.'.format(y_total_spent)
+        w_body = '${0} spent this week.'.format(w_total_spent)
+        r_body = '${0} available for the next {1} days.'.format(round(500-w_total_spent,2), (7-idx))
+
         sns = session.client('sns')
-        contact_list = [s_cell, m_cell]
+        contact_list = [s_cell]
         for num in contact_list:
             try:
                 sns.publish(
@@ -98,3 +127,7 @@ def budget_notifier(event, context):
         sms(session, y_trx,w_trx)
         print('yesterdays value: ' + str(y_trx) + ', week value: ' + str(w_trx))
     except Exception as e: print(e)
+
+
+if __name__ == "__main__":
+    budget_notifier('','')
